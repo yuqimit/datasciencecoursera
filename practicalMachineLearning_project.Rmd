@@ -1,0 +1,73 @@
+---
+title: "Practical Machine Learning Project"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Data Processing
+
+```{r cache = FALSE, message = FALSE, warning = FALSE, tidy = FALSE}
+
+library(caret); library(rpart); library(randomForest)
+install.packages("corrplot",repos='http://cran.us.r-project.org');library(corrplot)
+```
+
+```{r}
+train0 <- read.csv("pml-training.csv")
+test0 <- read.csv("pml-testing.csv")
+dim(train0)
+dim(test0)
+# str(train0)
+sum(complete.cases(train0))
+train1 <- train0[, colSums(is.na(train0)) == 0] 
+test1 <- test0[, colSums(is.na(test0)) == 0] 
+
+
+trainRemove <- grepl("^X|timestamp|window", names(train1))
+train2 <- train1[, !trainRemove]
+trainDataSet <- train2[, sapply(train2, is.numeric)]
+trainDataSet$classe <- train1$classe
+testRemove <- grepl("^X|timestamp|window", names(test1))
+test2 <- test1[, !testRemove]
+testDataSet <- test2[, sapply(test2, is.numeric)]
+dim(trainDataSet)
+dim(testDataSet)
+```
+
+## Split Data for Training and Cross Validation
+
+```{r}
+set.seed(1) 
+inTrain <- createDataPartition(trainDataSet$classe, p=0.70, list=F)
+trainData <- trainDataSet[inTrain, ]
+testData <- trainDataSet[-inTrain, ]
+```
+
+## Train the Model
+
+```{r}
+controlRf <- trainControl(method="cv", 5)
+modelRf <- train(classe ~ ., data=trainData, method="rf", trControl=controlRf, ntree=250)
+modelRf
+```
+
+## Test Model on the Cross Validation Set
+
+```{r}
+predictRf <- predict(modelRf, testData)
+confusionMatrix(testData$classe, predictRf)
+accuracy <- postResample(predictRf, testData$classe)
+accuracy
+outSampError <- 1 - as.numeric(confusionMatrix(testData$classe, predictRf)$overall[1])
+outSampError
+```
+
+## Prediction on the Test Data
+
+```{r}
+pred <- predict(modelRf, testDataSet[, -length(names(testDataSet))])
+pred
+```
